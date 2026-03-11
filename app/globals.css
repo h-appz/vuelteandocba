@@ -1,26 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,800;1,9..144,400&family=DM+Sans:wght@400;500;600&display=swap');
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --verde:         #2D6A4F;
+  --verde-medio:   #40916C;
+  --verde-claro:   #52B788;
+  --verde-menta:   #D8F3DC;
+  --naranja:       #E07A2F;
+  --naranja-suave: #FFF0E0;
+  --crema:         #FAF7F0;
+  --crema-borde:   #EDEDE8;
+  --tierra:        #6B4226;
+  --gris-texto:    #1E1E1E;
+  --gris-mid:      #5A5A5A;
+  --gris-suave:    #9A9A9A;
+  --blanco:        #FFFFFF;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--crema);
+  color: var(--gris-texto);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.font-fraunces {
+  font-family: 'Fraunces', serif;
 }
