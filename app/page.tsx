@@ -1,4 +1,34 @@
-export default function Home() {
+// ============================================================
+// app/page.tsx
+// Página principal — conserva el diseño V3 completo y agrega
+// la sección de agenda con datos reales de la API.
+// ============================================================
+
+import { getEventos } from '@/app/lib/getEventos'
+import EventoCard from '@/app/components/EventoCard'
+
+// Categorías disponibles para el filtro visual
+// Usamos los slugs reales que confirmamos en el testeo de la API
+const FILTROS_CATEGORIA = [
+  { slug: 'todos',   label: '✨ Todos' },
+  { slug: 'gratis',  label: '🆓 Gratis' },
+  { slug: 'cine',    label: '🎬 Cine' },
+  { slug: 'teatro',  label: '🎭 Teatro' },
+  { slug: 'musica',  label: '🎵 Música' },
+  { slug: 'danza',   label: '💃 Danza' },
+  { slug: 'muestras',label: '🖼️ Muestras' },
+  { slug: 'charla',  label: '🎤 Charlas' },
+]
+
+export default async function Home() {
+  // Traemos los eventos reales desde la API
+  // Como page.tsx es un Server Component en Next.js,
+  // podemos llamar a funciones async directamente acá
+  const eventos = await getEventos()
+
+  // Mes actual para mostrar en el título de la sección
+  const mesActual = new Date().toLocaleString('es-AR', { month: 'long', year: 'numeric' })
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--crema)' }}>
 
@@ -135,9 +165,9 @@ export default function Home() {
         display: 'flex', justifyContent: 'center', gap: '48px'
       }}>
         {[
-          { num: '48', label: 'eventos esta semana' },
-          { num: '27', label: 'lugares cargados' },
-          { num: '🟢', label: 'API en vivo' },
+          { num: String(eventos.length), label: 'eventos este mes' },
+          { num: '27',                   label: 'lugares cargados' },
+          { num: '🟢',                   label: 'API en vivo' },
         ].map((s) => (
           <div key={s.label} style={{ textAlign: 'center' }}>
             <div style={{
@@ -152,6 +182,84 @@ export default function Home() {
         ))}
       </div>
 
+      {/* ==================== AGENDA ==================== */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '48px 28px' }}>
+
+        {/* ENCABEZADO DE SECCIÓN */}
+        <div style={{ marginBottom: '28px' }}>
+          <p style={{
+            fontSize: '11px', fontWeight: 600,
+            color: 'var(--naranja)',
+            textTransform: 'uppercase', letterSpacing: '2px',
+            marginBottom: '6px'
+          }}>
+            Agenda cultural
+          </p>
+          <h2 style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: '28px', fontWeight: 700,
+            color: 'var(--verde-dark)',
+            textTransform: 'capitalize'
+          }}>
+            {mesActual}
+          </h2>
+        </div>
+
+        {/* FILTROS */}
+        <div style={{
+          display: 'flex', gap: '8px',
+          flexWrap: 'wrap', marginBottom: '32px'
+        }}>
+          {FILTROS_CATEGORIA.map((filtro) => (
+            <span
+              key={filtro.slug}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '100px',
+                border: '1.5px solid',
+                borderColor: filtro.slug === 'todos' ? 'var(--verde)' : '#DDD',
+                background: filtro.slug === 'todos' ? 'var(--verde)' : 'white',
+                color: filtro.slug === 'todos' ? 'white' : 'var(--gris-mid)',
+                fontSize: '13px', fontWeight: 500,
+                cursor: 'pointer',
+                fontFamily: "'DM Sans', sans-serif",
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {filtro.label}
+            </span>
+          ))}
+        </div>
+
+        {/* GRID DE EVENTOS */}
+        {eventos.length === 0 ? (
+          // Estado vacío — si la API falla o no hay eventos
+          <div style={{
+            textAlign: 'center', padding: '64px 0',
+            color: 'var(--gris-suave)'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎭</div>
+            <p style={{ fontFamily: "'Fraunces', serif", fontSize: '20px', marginBottom: '8px' }}>
+              Sin eventos por ahora
+            </p>
+            <p style={{ fontSize: '14px' }}>
+              La agenda se actualiza automáticamente desde Córdoba Cultura.
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '20px'
+          }}>
+            {eventos.map((evento) => (
+              <EventoCard key={evento.id} evento={evento} />
+            ))}
+          </div>
+        )}
+
+      </section>
+
       {/* ANIMACIONES */}
       <style>{`
         @keyframes ticker {
@@ -165,5 +273,5 @@ export default function Home() {
       `}</style>
 
     </div>
-  );
+  )
 }
