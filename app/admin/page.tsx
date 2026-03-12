@@ -60,22 +60,31 @@ async function leerContenidoURL(url: string): Promise<string> {
   // Removemos tags HTML para que la IA reciba texto legible
   // ============================================================
   function extraerTextoDeHTML(html: string): string {
-    // Crear un elemento DOM temporal para parsear el HTML
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(html, 'text/html')
-
-    // Remover scripts, styles y nav para limpiar el texto
-    doc.querySelectorAll('script, style, nav, header, footer').forEach(el => el.remove())
-
-    // Buscar el contenido principal del post
-    const contenido =
-      doc.querySelector('.entry-content') ||
-      doc.querySelector('.post-content') ||
-      doc.querySelector('article') ||
-      doc.querySelector('main') ||
-      doc.body
-
-return contenido?.textContent || ''
+    // Removemos scripts, styles y tags HTML con regex
+    // DOMParser a veces falla con HTML muy grande o complejo
+    let texto = html
+    
+    // Sacar scripts y styles completos
+    texto = texto.replace(/<script[\s\S]*?<\/script>/gi, '')
+    texto = texto.replace(/<style[\s\S]*?<\/style>/gi, '')
+    
+    // Intentar extraer solo el contenido del post de WordPress
+    const matchContenido = texto.match(/<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<div[^>]*class="[^"]*entry-meta/i)
+    if (matchContenido) {
+      texto = matchContenido[1]
+    }
+    
+    // Sacar todos los tags HTML restantes
+    texto = texto.replace(/<[^>]+>/g, ' ')
+    
+    // Limpiar espacios múltiples y líneas vacías
+    texto = texto.replace(/&nbsp;/g, ' ')
+    texto = texto.replace(/&amp;/g, '&')
+    texto = texto.replace(/&lt;/g, '<')
+    texto = texto.replace(/&gt;/g, '>')
+    texto = texto.replace(/\s{3,}/g, '\n\n')
+    
+    return texto.trim()
   }
 
   // ============================================================
