@@ -2,8 +2,11 @@
 
 // ============================================================
 // app/page.tsx — lee eventos desde Firestore
-// Actualización: placeholders con íconos Phosphor duotone
-// inline (sin CDN, sin dependencias extra).
+//
+// Cambiamos la fuente de datos: antes consumía la API de
+// Córdoba Cultura (que tenía pocos eventos y daba 403 desde
+// servidor). Ahora lee desde nuestra propia colección en
+// Firestore, donde cargamos los eventos via el panel de admin.
 // ============================================================
 
 import { useState, useEffect } from 'react'
@@ -53,187 +56,47 @@ const CATEGORIAS_DISPLAY: Record<string, { emoji: string; label: string }> = {
   'otro':      { emoji: '✨', label: 'Otro' },
 }
 
-// --- CONFIGURACIÓN DE PLACEHOLDERS POR CATEGORÍA ---
-// Cada categoría tiene: color de fondo, color del ícono, y el SVG path de Phosphor duotone.
-// Los íconos son inline (sin CDN) — funcionan siempre.
+// --- UNSPLASH PLACEHOLDER ---
+// Palabras clave por categoría para que Unsplash devuelva fotos relevantes.
+// La URL /featured/?keyword devuelve una foto aleatoria diferente cada vez.
+// Si Unsplash falla, el onError muestra un gradiente de color como último recurso.
 
-const PLACEHOLDER_CONFIG: Record<string, {
-  bg: string
-  colorPrimary: string
-  colorSecondary: string
-  label: string
-  icon: React.ReactNode
-}> = {
-  teatro: {
-    bg: '#1C1033',
-    colorPrimary: '#C4A8FF',
-    colorSecondary: '#7C3AED',
-    label: 'Teatro',
-    icon: (
-      // Phosphor duotone: MaskHappy
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M236,84v46a108,108,0,0,1-108,108A108,108,0,0,1,20,130V84a8,8,0,0,1,8-8H228A8,8,0,0,1,236,84Z" fill="#C4A8FF" opacity="0.2"/>
-        <path d="M236,84v46a108,108,0,0,1-108,108A108,108,0,0,1,20,130V84a8,8,0,0,1,8-8H228A8,8,0,0,1,236,84Z" fill="none" stroke="#C4A8FF" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M100,128a36,36,0,0,0,56,0" fill="none" stroke="#C4A8FF" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <circle cx="92" cy="104" r="12" fill="#C4A8FF"/>
-        <circle cx="164" cy="104" r="12" fill="#C4A8FF"/>
-        <path d="M76,12,28,20V76" fill="none" stroke="#7C3AED" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M180,12l48,8V76" fill="none" stroke="#7C3AED" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  música: {
-    bg: '#0D1B2A',
-    colorPrimary: '#FFB347',
-    colorSecondary: '#E07A2F',
-    label: 'Música',
-    icon: (
-      // Phosphor duotone: MicrophoneStage
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M80,128a48,48,0,0,1,96,0v16a48,48,0,0,1-96,0Z" fill="#FFB347" opacity="0.25"/>
-        <path d="M80,128a48,48,0,0,1,96,0v16a48,48,0,0,1-96,0Z" fill="none" stroke="#FFB347" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="128" y1="192" x2="128" y2="224" stroke="#FFB347" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="96" y1="224" x2="160" y2="224" stroke="#FFB347" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M48,160a80,80,0,0,0,160,0" fill="none" stroke="#E07A2F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="128" y1="32" x2="128" y2="80" stroke="#E07A2F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="104" y1="56" x2="152" y2="56" stroke="#E07A2F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  cine: {
-    bg: '#0A0A0A',
-    colorPrimary: '#E0E0E0',
-    colorSecondary: '#888888',
-    label: 'Cine',
-    icon: (
-      // Phosphor duotone: FilmSlate
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M216,80V208a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80Z" fill="#E0E0E0" opacity="0.15"/>
-        <path d="M216,80V208a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V80Z" fill="none" stroke="#E0E0E0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M40,80,82.06,48H216L174,80Z" fill="#E0E0E0" opacity="0.3"/>
-        <path d="M40,80,82.06,48H216L174,80Z" fill="none" stroke="#E0E0E0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="107" y1="48" x2="88" y2="80" stroke="#888" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="153" y1="48" x2="134" y2="80" stroke="#888" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="199" y1="48" x2="180" y2="80" stroke="#888" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  danza: {
-    bg: '#1A0820',
-    colorPrimary: '#F4A7CE',
-    colorSecondary: '#D6336C',
-    label: 'Danza',
-    icon: (
-      // Phosphor duotone: PersonSimpleDance
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <circle cx="160" cy="48" r="24" fill="#F4A7CE" opacity="0.3"/>
-        <circle cx="160" cy="48" r="24" fill="none" stroke="#F4A7CE" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M48,120l64-16,32,48,32-64" fill="none" stroke="#F4A7CE" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M144,88l-32,80H80" fill="none" stroke="#D6336C" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M112,168l16,56" fill="none" stroke="#D6336C" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  muestra: {
-    bg: '#0B1F14',
-    colorPrimary: '#7DCCA4',
-    colorSecondary: '#2D6A4F',
-    label: 'Muestra',
-    icon: (
-      // Phosphor duotone: PaintBrushBroad
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M56,216c0-24,24-40,48-40s48,16,48,40a48,48,0,0,1-96,0Z" fill="#7DCCA4" opacity="0.25"/>
-        <path d="M56,216c0-24,24-40,48-40s48,16,48,40a48,48,0,0,1-96,0Z" fill="none" stroke="#7DCCA4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M152,176,224,48" fill="none" stroke="#7DCCA4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M104,176c0-17.67,21.49-32,48-32" fill="none" stroke="#2D6A4F" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  charla: {
-    bg: '#0A1628',
-    colorPrimary: '#93C5FD',
-    colorSecondary: '#3B82F6',
-    label: 'Charla',
-    icon: (
-      // Phosphor duotone: Microphone
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <rect x="88" y="24" width="80" height="128" rx="40" fill="#93C5FD" opacity="0.2"/>
-        <rect x="88" y="24" width="80" height="128" rx="40" fill="none" stroke="#93C5FD" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M48,128a80,80,0,0,0,160,0" fill="none" stroke="#3B82F6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="128" y1="208" x2="128" y2="240" stroke="#3B82F6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="96" y1="240" x2="160" y2="240" stroke="#3B82F6" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  taller: {
-    bg: '#1A1200',
-    colorPrimary: '#FCD34D',
-    colorSecondary: '#D97706',
-    label: 'Taller',
-    icon: (
-      // Phosphor duotone: Wrench
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M218.83,103.77l-80,80a12,12,0,0,1-17,0L33.17,95.06a12,12,0,0,1,0-17C70,41.56,148,33,193.09,62.91A12,12,0,0,1,218.83,103.77Z" fill="#FCD34D" opacity="0.2"/>
-        <path d="M218.83,103.77l-80,80a12,12,0,0,1-17,0L33.17,95.06a12,12,0,0,1,0-17C70,41.56,148,33,193.09,62.91A12,12,0,0,1,218.83,103.77Z" fill="none" stroke="#FCD34D" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="100" y1="156" x2="60" y2="196" stroke="#D97706" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  festival: {
-    bg: '#1A0A00',
-    colorPrimary: '#FDBA74',
-    colorSecondary: '#EA580C',
-    label: 'Festival',
-    icon: (
-      // Phosphor duotone: Star
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M128,24l29.09,62.26L224,94.81l-50,48.29,12.24,67.54L128,177.51,69.76,210.64,82,143.1,32,94.81l66.91-8.55Z" fill="#FDBA74" opacity="0.25"/>
-        <path d="M128,24l29.09,62.26L224,94.81l-50,48.29,12.24,67.54L128,177.51,69.76,210.64,82,143.1,32,94.81l66.91-8.55Z" fill="none" stroke="#FDBA74" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  deporte: {
-    bg: '#001A0A',
-    colorPrimary: '#6EE7B7',
-    colorSecondary: '#059669',
-    label: 'Deporte',
-    icon: (
-      // Phosphor duotone: Trophy
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M56,56V168a72,72,0,0,0,144,0V56Z" fill="#6EE7B7" opacity="0.2"/>
-        <path d="M56,56V168a72,72,0,0,0,144,0V56Z" fill="none" stroke="#6EE7B7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M56,88H24A16,16,0,0,0,40,104" fill="none" stroke="#059669" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <path d="M200,88h32a16,16,0,0,1-16,16" fill="none" stroke="#059669" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="128" y1="240" x2="128" y2="208" stroke="#059669" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-        <line x1="96" y1="240" x2="160" y2="240" stroke="#059669" strokeLinecap="round" strokeLinejoin="round" strokeWidth="14"/>
-      </svg>
-    )
-  },
-  otro: {
-    bg: '#1A1410',
-    colorPrimary: '#D6D3D1',
-    colorSecondary: '#78716C',
-    label: 'Otro',
-    icon: (
-      // Phosphor duotone: Sparkle
-      <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 256 256">
-        <path d="M152,128l-32,8-8,32-8-32L72,128l32-8,8-32,8,32Z" fill="#D6D3D1" opacity="0.3"/>
-        <path d="M152,128l-32,8-8,32-8-32L72,128l32-8,8-32,8,32Z" fill="none" stroke="#D6D3D1" strokeLinecap="round" strokeLinejoin="round" strokeWidth="12"/>
-        <path d="M224,64l-16,4-4,16-4-16L184,64l16-4,4-16,4,16Z" fill="#78716C" opacity="0.6"/>
-        <path d="M80,32l-8,2-2,8-2-8L60,32l8-2,2-8,2,8Z" fill="#78716C" opacity="0.6"/>
-      </svg>
-    )
-  },
+const UNSPLASH_KEYWORDS: Record<string, string> = {
+  'teatro':   'theater,stage,performance',
+  'música':   'music,concert,live',
+  'cine':     'cinema,film,movie',
+  'danza':    'dance,ballet,dancer',
+  'muestra':  'art,exhibition,gallery',
+  'charla':   'conference,talk,speaker',
+  'taller':   'workshop,craft,art',
+  'festival': 'festival,celebration,outdoor',
+  'deporte':  'sport,stadium,action',
+  'otro':     'culture,event,city',
 }
 
-// Fallback si la categoría no tiene config
-const PLACEHOLDER_DEFAULT = PLACEHOLDER_CONFIG['otro']
+const FALLBACK_GRADIENTS: Record<string, string> = {
+  'teatro':   'linear-gradient(135deg, #1C1033, #4C1D95)',
+  'música':   'linear-gradient(135deg, #0D1B2A, #92400E)',
+  'cine':     'linear-gradient(135deg, #111827, #374151)',
+  'danza':    'linear-gradient(135deg, #1A0820, #9D174D)',
+  'muestra':  'linear-gradient(135deg, #0B1F14, #065F46)',
+  'charla':   'linear-gradient(135deg, #0A1628, #1E3A5F)',
+  'taller':   'linear-gradient(135deg, #1A1200, #78350F)',
+  'festival': 'linear-gradient(135deg, #1A0A00, #C2410C)',
+  'deporte':  'linear-gradient(135deg, #001A0A, #047857)',
+  'otro':     'linear-gradient(135deg, #1A1410, #44403C)',
+}
 
-function getPlaceholder(categorias: string[]) {
-  for (const cat of categorias) {
-    if (PLACEHOLDER_CONFIG[cat]) return PLACEHOLDER_CONFIG[cat]
-  }
-  return PLACEHOLDER_DEFAULT
+function getUnsplashUrl(categorias: string[]): string {
+  const cat = categorias[0] ?? 'otro'
+  const keyword = UNSPLASH_KEYWORDS[cat] ?? UNSPLASH_KEYWORDS['otro']
+  // 400x300 es suficiente para la card, carga rápido
+  return `https://source.unsplash.com/featured/400x300/?${keyword}`
+}
+
+function getFallbackGradient(categorias: string[]): string {
+  const cat = categorias[0] ?? 'otro'
+  return FALLBACK_GRADIENTS[cat] ?? FALLBACK_GRADIENTS['otro']
 }
 
 // --- HELPERS ---
@@ -266,7 +129,6 @@ function getCategoriaDisplay(categorias: string[]) {
 function EventoCard({ evento }: { evento: Evento }) {
   const categoriaDisplay = getCategoriaDisplay(evento.categorias)
   const fechaLegible = formatearFecha(evento.fecha_inicio)
-  const placeholder = getPlaceholder(evento.categorias)
 
   return (
     <a
@@ -281,49 +143,24 @@ function EventoCard({ evento }: { evento: Evento }) {
         textDecoration: 'none'
       }}
     >
-      {/* IMAGEN / PLACEHOLDER */}
+      {/* IMAGEN */}
       <div style={{ position: 'relative', width: '100%', height: '176px', overflow: 'hidden' }}>
-        {evento.imagen ? (
-          // Si hay imagen real, la mostramos — si falla la carga, el onError muestra el placeholder
-          <img
-            src={evento.imagen}
-            alt={evento.titulo}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={(e) => {
-              // Si la imagen falla, ocultamos el img y mostramos el placeholder padre
-              const target = e.currentTarget as HTMLImageElement
-              target.style.display = 'none'
-              const parent = target.parentElement
-              if (parent) {
-                parent.style.background = placeholder.bg
-                parent.style.display = 'flex'
-                parent.style.alignItems = 'center'
-                parent.style.justifyContent = 'center'
-              }
-            }}
-          />
-        ) : (
-          // Placeholder Phosphor duotone
-          <div style={{
-            width: '100%', height: '100%',
-            background: placeholder.bg,
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            gap: '10px'
-          }}>
-            {placeholder.icon}
-            <span style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: '10px', fontWeight: 700,
-              textTransform: 'uppercase', letterSpacing: '0.15em',
-              color: placeholder.colorPrimary, opacity: 0.6
-            }}>
-              {placeholder.label}
-            </span>
-          </div>
-        )}
-
-        {/* CHIP CATEGORÍA */}
+        {/* Siempre mostramos una imagen:
+            1. Si el evento tiene imagen propia → esa
+            2. Si no → foto aleatoria de Unsplash por categoría
+            3. Si Unsplash falla → gradiente de color como último recurso */}
+        <img
+          src={evento.imagen || getUnsplashUrl(evento.categorias)}
+          alt={evento.titulo}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          onError={(e) => {
+            const img = e.currentTarget
+            img.style.display = 'none'
+            if (img.parentElement) {
+              img.parentElement.style.background = getFallbackGradient(evento.categorias)
+            }
+          }}
+        />
         {categoriaDisplay && (
           <div style={{
             position: 'absolute', top: '10px', left: '10px',
@@ -336,8 +173,6 @@ function EventoCard({ evento }: { evento: Evento }) {
             <span>{categoriaDisplay.label}</span>
           </div>
         )}
-
-        {/* BADGE GRATIS */}
         {evento.es_gratis && (
           <div style={{
             position: 'absolute', top: '10px', right: '10px',
