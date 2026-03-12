@@ -48,13 +48,14 @@ export default function AdminPage() {
   // Usamos un proxy público para evitar problemas de CORS
   // ============================================================
 async function leerContenidoURL(url: string): Promise<string> {
-    // Llamamos a nuestra API route en Vercel en vez de un proxy externo
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
     const res = await fetch(proxyUrl)
     if (!res.ok) throw new Error('No se pudo acceder a la URL')
-    return await res.text()
-  }
-  // ============================================================
+    const html = await res.text()
+    console.log('HTML recibido, longitud:', html.length)
+    console.log('Primeros 500 chars:', html.slice(0, 500))
+    return html
+  }  // ============================================================
   // PASO 2: Extraer texto limpio del HTML
   // Removemos tags HTML para que la IA reciba texto legible
   // ============================================================
