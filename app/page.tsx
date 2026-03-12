@@ -1,19 +1,21 @@
 'use client'
 
 // ============================================================
-// app/page.tsx — versión Client Component
+// app/page.tsx — lee eventos desde Firestore
 //
-// ¿Por qué 'use client'?
-// La API de Córdoba Cultura bloquea llamadas desde servidores
-// con error 403. Al usar 'use client', la llamada la hace el
-// navegador del usuario — que sí es aceptado por la API.
+// Cambiamos la fuente de datos: antes consumía la API de
+// Córdoba Cultura (que tenía pocos eventos y daba 403 desde
+// servidor). Ahora lee desde nuestra propia colección en
+// Firestore, donde cargamos los eventos via el panel de admin.
 // ============================================================
 
 import { useState, useEffect } from 'react'
+import { db } from './lib/firebase'
+import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 
 // --- TIPOS ---
 type Evento = {
-  id: number
+  id: string
   titulo: string
   descripcion: string
   imagen: string | null
@@ -34,42 +36,37 @@ const FILTROS = [
   { slug: 'gratis',   label: '🆓 Gratis' },
   { slug: 'cine',     label: '🎬 Cine' },
   { slug: 'teatro',   label: '🎭 Teatro' },
-  { slug: 'musica',   label: '🎵 Música' },
+  { slug: 'música',   label: '🎵 Música' },
   { slug: 'danza',    label: '💃 Danza' },
-  { slug: 'muestras', label: '🖼️ Muestras' },
+  { slug: 'muestra',  label: '🖼️ Muestras' },
   { slug: 'charla',   label: '🎤 Charlas' },
 ]
 
 // --- CATEGORÍAS DISPLAY ---
 const CATEGORIAS_DISPLAY: Record<string, { emoji: string; label: string }> = {
-  'cine':           { emoji: '🎬', label: 'Cine' },
-  'teatro':         { emoji: '🎭', label: 'Teatro' },
-  'musica':         { emoji: '🎵', label: 'Música' },
-  'danza':          { emoji: '💃', label: 'Danza' },
-  'muestras':       { emoji: '🖼️', label: 'Muestra' },
-  'artes-visuales': { emoji: '🎨', label: 'Artes Visuales' },
-  'charla':         { emoji: '🎤', label: 'Charla' },
-  'literatura':     { emoji: '📚', label: 'Literatura' },
-  'coro':           { emoji: '🎶', label: 'Coro' },
-  'eventos-especiales': { emoji: '⭐', label: 'Especial' },
+  'cine':      { emoji: '🎬', label: 'Cine' },
+  'teatro':    { emoji: '🎭', label: 'Teatro' },
+  'música':    { emoji: '🎵', label: 'Música' },
+  'danza':     { emoji: '💃', label: 'Danza' },
+  'muestra':   { emoji: '🖼️', label: 'Muestra' },
+  'charla':    { emoji: '🎤', label: 'Charla' },
+  'taller':    { emoji: '🛠️', label: 'Taller' },
+  'festival':  { emoji: '⭐', label: 'Festival' },
+  'deporte':   { emoji: '⚽', label: 'Deporte' },
+  'otro':      { emoji: '✨', label: 'Otro' },
 }
 
 // --- HELPERS ---
 
 function formatearFecha(fechaStr: string): string {
-  const fecha = new Date(fechaStr.replace(' ', 'T'))
+  if (!fechaStr) return ''
+  const fecha = new Date(fechaStr + 'T00:00:00')
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
   const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
   const diaSemana = diasSemana[fecha.getDay()]
   const dia = fecha.getDate()
   const mes = meses[fecha.getMonth()]
-  const hora = String(fecha.getHours()).padStart(2, '0')
-  const minutos = String(fecha.getMinutes()).padStart(2, '0')
-  return `${diaSemana} ${dia} ${mes} · ${hora}:${minutos} hs`
-}
-
-function limpiarHTML(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim()
+  return `${diaSemana} ${dia} ${mes}`
 }
 
 function truncar(texto: string, max: number): string {
@@ -84,13 +81,6 @@ function getCategoriaDisplay(categorias: string[]) {
   return null
 }
 
-function formatearFechaAPI(fecha: Date): string {
-  const año = fecha.getFullYear()
-  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
-  const dia = String(fecha.getDate()).padStart(2, '0')
-  return `${año}-${mes}-${dia}`
-}
-
 // --- COMPONENTE EVENTO CARD ---
 
 function EventoCard({ evento }: { evento: Evento }) {
@@ -99,7 +89,7 @@ function EventoCard({ evento }: { evento: Evento }) {
 
   return (
     <a
-      href={evento.url_evento}
+      href={evento.url_evento || '#'}
       target="_blank"
       rel="noopener noreferrer"
       style={{
@@ -116,7 +106,9 @@ function EventoCard({ evento }: { evento: Evento }) {
           <img src={evento.imagen} alt={evento.titulo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '40px' }}>🎭</span>
+            <span style={{ fontSize: '40px' }}>
+              {categoriaDisplay ? categoriaDisplay.emoji : '🎭'}
+            </span>
           </div>
         )}
         {categoriaDisplay && (
@@ -152,6 +144,9 @@ function EventoCard({ evento }: { evento: Evento }) {
           marginBottom: '4px', fontFamily: "'DM Sans', sans-serif"
         }}>
           {fechaLegible}
+          {evento.costo && !evento.es_gratis && (
+            <span style={{ marginLeft: '8px', color: '#AAA', fontWeight: 400 }}>· {evento.costo}</span>
+          )}
         </p>
         <h3 style={{
           fontFamily: "'Fraunces', serif", fontSize: '15px',
@@ -191,40 +186,31 @@ export default function Home() {
   useEffect(() => {
     async function cargarEventos() {
       try {
-        const hoy = new Date()
-        const finDeMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)
-        const fechaInicio = formatearFechaAPI(hoy)
-        const fechaFin = formatearFechaAPI(finDeMes)
+        const q = query(collection(db, 'eventos'), orderBy('fecha_inicio'))
+        const snapshot = await getDocs(q)
 
-        const url = `https://cultura.cba.gov.ar/wp-json/tribe/events/v1/events?per_page=100&start_date=${fechaInicio}&end_date=${fechaFin}&status=publish`
-
-        const respuesta = await fetch(url)
-        if (!respuesta.ok) throw new Error(`Error ${respuesta.status}`)
-
-        const datos = await respuesta.json()
-        const eventosRaw = datos.events ?? []
-
-        const eventosProcesados: Evento[] = eventosRaw
-          .filter((e: any) => e.venue?.city === 'Córdoba')
-          .map((e: any): Evento => ({
-            id: e.id,
-            titulo: e.title,
-            descripcion: limpiarHTML(e.description ?? ''),
-            imagen: e.image?.sizes?.medium?.url ?? e.image?.url ?? null,
-            fecha_inicio: e.start_date,
-            fecha_fin: e.end_date,
-            es_gratis: e.categories?.some((cat: any) => cat.slug === 'gratis') ?? false,
-            costo: e.cost ?? '',
-            venue_nombre: e.venue?.venue ?? '',
-            venue_direccion: e.venue?.address ?? '',
-            venue_ciudad: e.venue?.city ?? '',
-            categorias: e.categories?.map((cat: any) => cat.slug) ?? [],
-            url_evento: e.url ?? '',
-          }))
+        const eventosProcesados: Evento[] = snapshot.docs.map(doc => {
+          const d = doc.data()
+          return {
+            id: doc.id,
+            titulo: d.titulo ?? '',
+            descripcion: d.descripcion ?? '',
+            imagen: d.imagen_url || null,
+            fecha_inicio: d.fecha_inicio ?? '',
+            fecha_fin: d.fecha_fin ?? '',
+            es_gratis: d.es_gratis ?? false,
+            costo: d.costo ?? '',
+            venue_nombre: d.venue ?? '',
+            venue_direccion: d.direccion ?? '',
+            venue_ciudad: 'Córdoba',
+            categorias: d.categoria ? [d.categoria] : [],
+            url_evento: d.fuente_url ?? '',
+          }
+        })
 
         setEventos(eventosProcesados)
       } catch (error) {
-        console.error('Error cargando eventos:', error)
+        console.error('Error cargando eventos desde Firestore:', error)
         setEventos([])
       } finally {
         setCargando(false)
@@ -234,9 +220,12 @@ export default function Home() {
     cargarEventos()
   }, [])
 
+  // Filtro: gratis es campo booleano, el resto es categoria
   const eventosFiltrados = filtroActivo === 'todos'
     ? eventos
-    : eventos.filter(e => e.categorias.includes(filtroActivo))
+    : filtroActivo === 'gratis'
+      ? eventos.filter(e => e.es_gratis)
+      : eventos.filter(e => e.categorias.includes(filtroActivo))
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--crema)' }}>
@@ -295,9 +284,9 @@ export default function Home() {
       {/* STATS */}
       <div style={{ background: 'var(--blanco)', borderBottom: '1px solid var(--crema-borde)', padding: '14px 28px', display: 'flex', justifyContent: 'center', gap: '48px' }}>
         {[
-          { num: cargando ? '…' : String(eventos.length), label: 'eventos este mes' },
+          { num: cargando ? '…' : String(eventos.length), label: 'eventos cargados' },
           { num: '27', label: 'lugares cargados' },
-          { num: '🟢', label: 'API en vivo' },
+          { num: '🟢', label: 'Firestore activo' },
         ].map((s) => (
           <div key={s.label} style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: "'Fraunces', serif", fontSize: '24px', fontWeight: 800, color: 'var(--verde)' }}>{s.num}</div>
@@ -351,7 +340,7 @@ export default function Home() {
           <div style={{ textAlign: 'center', padding: '64px 0' }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎭</div>
             <p style={{ fontFamily: "'Fraunces', serif", fontSize: '20px', marginBottom: '8px', color: '#1B4332' }}>Sin eventos por ahora</p>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#888' }}>La agenda se actualiza automáticamente desde Córdoba Cultura.</p>
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '14px', color: '#888' }}>Cargá eventos desde el panel de admin.</p>
           </div>
         )}
 
