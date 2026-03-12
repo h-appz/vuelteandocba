@@ -47,15 +47,12 @@ export default function AdminPage() {
   // PASO 1: Leer el contenido de la URL del blog
   // Usamos un proxy público para evitar problemas de CORS
   // ============================================================
-  async function leerContenidoURL(url: string): Promise<string> {
-    // allorigins.win es un proxy CORS gratuito que devuelve el HTML de cualquier URL
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+async function leerContenidoURL(url: string): Promise<string> {
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
     const res = await fetch(proxyUrl)
     if (!res.ok) throw new Error('No se pudo acceder a la URL')
-    const data = await res.json()
-    return data.contents
+    return await res.text()
   }
-
   // ============================================================
   // PASO 2: Extraer texto limpio del HTML
   // Removemos tags HTML para que la IA reciba texto legible
