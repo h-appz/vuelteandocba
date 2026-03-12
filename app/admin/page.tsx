@@ -48,7 +48,8 @@ export default function AdminPage() {
   // Usamos un proxy público para evitar problemas de CORS
   // ============================================================
 async function leerContenidoURL(url: string): Promise<string> {
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`
+    // Llamamos a nuestra API route en Vercel en vez de un proxy externo
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`
     const res = await fetch(proxyUrl)
     if (!res.ok) throw new Error('No se pudo acceder a la URL')
     return await res.text()
