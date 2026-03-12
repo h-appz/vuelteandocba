@@ -76,7 +76,7 @@ export default function AdminPage() {
       doc.querySelector('main') ||
       doc.body
 
-    return contenido?.innerText || contenido?.textContent || ''
+return contenido?.textContent || ''
   }
 
   // ============================================================
