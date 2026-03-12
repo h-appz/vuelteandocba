@@ -61,18 +61,6 @@ const CATEGORIAS_DISPLAY: Record<string, { emoji: string; label: string }> = {
 // La URL /featured/?keyword devuelve una foto aleatoria diferente cada vez.
 // Si Unsplash falla, el onError muestra un gradiente de color como último recurso.
 
-const UNSPLASH_KEYWORDS: Record<string, string> = {
-  'teatro':   'theater,stage,performance',
-  'música':   'music,concert,live',
-  'cine':     'cinema,film,movie',
-  'danza':    'dance,ballet,dancer',
-  'muestra':  'art,exhibition,gallery',
-  'charla':   'conference,talk,speaker',
-  'taller':   'workshop,craft,art',
-  'festival': 'festival,celebration,outdoor',
-  'deporte':  'sport,stadium,action',
-  'otro':     'culture,event,city',
-}
 
 const FALLBACK_GRADIENTS: Record<string, string> = {
   'teatro':   'linear-gradient(135deg, #1C1033, #4C1D95)',
@@ -88,10 +76,16 @@ const FALLBACK_GRADIENTS: Record<string, string> = {
 }
 
 function getUnsplashUrl(categorias: string[]): string {
+  // Picsum Photos: foto aleatoria 400x300, diferente para cada card
+  // usando el índice de categoría como seed para que no sean todas iguales
+  const seeds: Record<string, number> = {
+    'teatro': 10, 'música': 20, 'cine': 30, 'danza': 40,
+    'muestra': 50, 'charla': 60, 'taller': 70, 'festival': 80,
+    'deporte': 90, 'otro': 100,
+  }
   const cat = categorias[0] ?? 'otro'
-  const keyword = UNSPLASH_KEYWORDS[cat] ?? UNSPLASH_KEYWORDS['otro']
-  // 400x300 es suficiente para la card, carga rápido
-  return `https://source.unsplash.com/featured/400x300/?${keyword}`
+  const seed = (seeds[cat] ?? 100) + Math.floor(Math.random() * 10)
+  return `https://picsum.photos/seed/${seed}/400/300`
 }
 
 function getFallbackGradient(categorias: string[]): string {
